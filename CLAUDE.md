@@ -259,7 +259,7 @@ Use `visualize_predictions()` to compare:
 ## Dependencies
 
 ```
-torch>=2.0
+torch
 numpy
 Pillow
 matplotlib
