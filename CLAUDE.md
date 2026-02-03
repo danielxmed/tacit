@@ -8,11 +8,29 @@
 
 ```
 tacit/
-├── LICENSE                                    # Apache 2.0 license
-├── CLAUDE.md                                  # This file
-└── notebooks/
-    ├── 1_TACIT_maze_data_generator.ipynb     # Dataset generation (1M samples)
-    └── 2_TACIT_maze_training.ipynb           # Model training and evaluation
+├── tacit/                        # Main Python package
+│   ├── models/
+│   │   └── dit.py                # DiTBlock, TACITModel, embeddings
+│   ├── data/
+│   │   ├── generation.py         # Maze generation and rendering
+│   │   └── dataset.py            # MazeDataset, create_dataloader
+│   ├── training/
+│   │   └── trainer.py            # Trainer class, training loop
+│   └── inference/
+│       └── sampling.py           # Euler sampling, visualization
+├── scripts/                      # Entry point scripts
+│   ├── generate_data.py          # Dataset generation
+│   ├── train.py                  # Model training
+│   └── sample.py                 # Inference/sampling
+├── data/                         # Dataset directory (local)
+├── checkpoints/                  # Model checkpoints
+├── notebooks/                    # Original Jupyter notebooks (reference)
+│   ├── 1_TACIT_maze_data_generator.ipynb
+│   └── 2_TACIT_maze_training.ipynb
+├── requirements.txt
+├── LICENSE
+├── CLAUDE.md
+└── README.md
 ```
 
 ## Technology Stack
@@ -22,14 +40,13 @@ tacit/
 - **Image Processing**: PIL/Pillow
 - **Visualization**: Matplotlib
 - **Model Serialization**: SafeTensors
-- **Execution Environment**: Google Colab (GPU: NVIDIA Tesla T4)
 - **Progress Tracking**: tqdm
 
 ## Key Components
 
-### Notebook 1: Data Generator (`1_TACIT_maze_data_generator.ipynb`)
+### Data Generation (`tacit/data/generation.py`)
 
-Generates 1 million maze problem-solution pairs:
+Generates maze problem-solution pairs:
 
 | Component | Description |
 |-----------|-------------|
@@ -37,22 +54,36 @@ Generates 1 million maze problem-solution pairs:
 | `solve_maze()` | Finds shortest path using BFS |
 | `render_maze()` | Converts maze arrays to 64x64 RGB images |
 | `generate_maze_pair()` | Creates unsolved/solved image pairs |
+| `generate_dataset()` | Generates full dataset in batches |
 
-**Output**: 100 compressed .npz files, each containing 10,000 samples (~120MB per file)
+**Output**: Compressed .npz files, each containing 10,000 samples (~120MB per file)
 
-### Notebook 2: Training (`2_TACIT_maze_training.ipynb`)
+### Model (`tacit/models/dit.py`)
 
-Trains the diffusion transformer model:
+DiT-based architecture:
 
 | Class | Purpose |
 |-------|---------|
-| `MazeDataset` | PyTorch Dataset with lazy batch loading |
 | `TimestepEmbedder` | Sinusoidal timestep encoding (256-dim) |
 | `PatchEmbed` | 8x8 patch embedding to 384-dim |
 | `DiTBlock` | Transformer block with adaptive LayerNorm |
 | `FinalLayer` | Reconstructs patches back to images |
 | `TACITModel` | Complete architecture (8 transformer blocks) |
+
+### Training (`tacit/training/trainer.py`)
+
+| Class/Function | Purpose |
+|----------------|---------|
 | `Trainer` | Training loop with Adam optimizer |
+| `train()` | Main training function with checkpointing |
+| `load_checkpoint()` | Load model from safetensors file |
+
+### Dataset (`tacit/data/dataset.py`)
+
+| Class | Purpose |
+|-------|---------|
+| `MazeDataset` | PyTorch Dataset with lazy batch loading |
+| `create_dataloader()` | Creates DataLoader for training |
 
 ## Model Architecture
 
@@ -82,22 +113,26 @@ Output (bs, 3, 64, 64)
 
 ### Running the Pipeline
 
-1. **Generate Dataset** (Notebook 1):
-   - Mount Google Drive
-   - Run all cells to generate 1M maze pairs
-   - Output saved to `/content/drive/MyDrive/notebooks_tacit/maze_dataset/`
+1. **Generate Dataset**:
+   ```bash
+   python scripts/generate_data.py --total 1000000 --save_dir ./data
+   ```
 
-2. **Train Model** (Notebook 2):
-   - Mount Google Drive and load dataset
-   - Initialize model and trainer
-   - Train with checkpointing every 5 epochs
-   - Evaluate using `euler_sample()` function
+2. **Train Model**:
+   ```bash
+   python scripts/train.py --data_dir ./data --epochs 50
+   ```
+
+3. **Sample/Evaluate**:
+   ```bash
+   python scripts/sample.py --checkpoint ./checkpoints/tacit_epoch_50.safetensors --data_dir ./data
+   ```
 
 ### Directory Conventions
 
-- **Dataset**: `notebooks_tacit/maze_dataset/` (Google Drive)
-- **Checkpoints**: `notebooks_tacit/checkpoints/` (Google Drive)
-- **Checkpoint format**: `checkpoint_epoch_N.safetensors`
+- **Dataset**: `./data/` (local)
+- **Checkpoints**: `./checkpoints/` (local)
+- **Checkpoint format**: `tacit_epoch_N.safetensors`
 
 ## Code Conventions
 
@@ -163,18 +198,18 @@ load_checkpoint(model, optimizer, checkpoint_path)
 
 ### Adding New Maze Sizes
 
-Modify the `maze_sizes` list in Notebook 1:
+Modify `generate_maze_pair()` in `tacit/data/generation.py`:
 ```python
-maze_sizes = [11, 15, 21, 25, 31]  # Must be odd numbers
+size = random.choice([11, 15, 21, 25, 31])  # Must be odd numbers
 ```
 
 ### Adjusting Model Capacity
 
-In Notebook 2, modify `TACITModel` initialization:
+Modify `TACITModel` initialization in `tacit/models/dit.py`:
 ```python
 model = TACITModel(
     hidden_size=384,      # Increase for more capacity
-    depth=8,              # More transformer blocks
+    num_blocks=8,         # More transformer blocks
     num_heads=6,          # More attention heads
     patch_size=8          # Smaller = more patches
 )
@@ -182,9 +217,15 @@ model = TACITModel(
 
 ### Changing Training Parameters
 
+Via CLI:
+```bash
+python scripts/train.py --lr 1e-4 --batch_size 64 --epochs 50
+```
+
+Or programmatically:
 ```python
-trainer = Trainer(model, learning_rate=1e-4)  # Adjust LR
-# In train(): batch_size, num_epochs, checkpoint_every
+trainer = Trainer(model, learning_rate=1e-4)
+train(trainer, dataloader, num_epochs=50, checkpoint_every=5)
 ```
 
 ## Testing and Validation
@@ -217,20 +258,16 @@ Use `visualize_predictions()` to compare:
 
 ## Dependencies
 
-```python
-# Core
+```
 torch>=2.0
 numpy
 Pillow
 matplotlib
 tqdm
-
-# Model saving
 safetensors
-
-# Environment (Colab)
-google-colab  # For Drive mounting
 ```
+
+See `requirements.txt` for the complete list.
 
 ## License
 
