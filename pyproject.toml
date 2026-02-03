@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tacit"
+version = "0.1.0"
+description = "Transformation-Aware Capturing of Implicit Thought"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.8"
+dependencies = [
+    "torch>=2.0",
+    "numpy",
+    "Pillow",
+    "matplotlib",
+    "tqdm",
+    "safetensors",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tacit*"]
