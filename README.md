@@ -8,6 +8,7 @@ TACIT (Transformation-Aware Capturing of Implicit Thought) is a diffusion-based 
 
 ```bash
 pip install -r requirements.txt
+pip install -e .
 ```
 
 ## Quick Start
