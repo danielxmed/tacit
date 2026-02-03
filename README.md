@@ -1,6 +1,6 @@
 # TACIT
 
-TACIT (Transformation-Aware Capturing of Implicit Thought) is a diffusion-based transformer model for image-to-image translation tasks.
+TACIT (Transformation-Aware Capturing of Implicit Thought) is a diffusion-based transformer model for image-to-image reasoning tasks.
 
 > **Note**: This repository is under active development. Documentation will be expanded as the project matures.
 
