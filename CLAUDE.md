@@ -2,13 +2,14 @@
 
 ## Project Overview
 
-**TACIT** (Task-Agnostic Continuous Image-to-Image Translation) is a machine learning research project implementing a diffusion-based transformer model for solving maze problems. The model learns to transform images of unsolved mazes into solved mazes using a diffusion process.
+**TACIT** (Transformation-Aware Capturing of Implicit Thought) is a machine learning research project implementing a diffusion-based transformer model for image-to-image reasoning tasks. The current demonstration uses maze-solving: the model learns to transform images of unsolved mazes into solved mazes using a diffusion process.
 
 ## Repository Structure
 
 ```
 tacit/
 ├── tacit/                        # Main Python package
+│   ├── __init__.py               # Package exports (TACITModel, Trainer, sample_euler_method)
 │   ├── models/
 │   │   └── dit.py                # DiTBlock, TACITModel, embeddings
 │   ├── data/
@@ -20,14 +21,25 @@ tacit/
 │       └── sampling.py           # Euler sampling, visualization
 ├── scripts/                      # Entry point scripts
 │   ├── generate_data.py          # Dataset generation
-│   ├── train.py                  # Model training
-│   └── sample.py                 # Inference/sampling
-├── data/                         # Dataset directory (local)
-├── checkpoints/                  # Model checkpoints
+│   ├── train.py                  # Model training (with torch.compile, AMP)
+│   ├── sample.py                 # Inference/sampling
+│   ├── evaluate.py               # Evaluation with PSNR, Path IoU metrics
+│   └── generate_paper_figures.py # Paper figure generation
+├── paper_data/                   # Paper figures and metrics
+│   ├── figures/
+│   │   ├── training_curves/      # Loss curves, quality metrics
+│   │   ├── epoch_comparison/     # Evolution grids
+│   │   └── maze_samples/         # Per-epoch sample visualizations
+│   ├── reports/                  # Training summaries
+│   └── README.md
+├── data/                         # Dataset directory (local, gitignored)
+├── checkpoints/                  # Model checkpoints (local, gitignored)
 ├── notebooks/                    # Original Jupyter notebooks (reference)
 │   ├── 1_TACIT_maze_data_generator.ipynb
 │   └── 2_TACIT_maze_training.ipynb
+├── pyproject.toml                # Package configuration
 ├── requirements.txt
+├── .gitignore
 ├── LICENSE
 ├── CLAUDE.md
 └── README.md
@@ -35,12 +47,22 @@ tacit/
 
 ## Technology Stack
 
-- **Deep Learning Framework**: PyTorch (with CUDA support)
+- **Deep Learning Framework**: PyTorch 2.0+ (with CUDA support, torch.compile, AMP)
 - **Numerical Computing**: NumPy
 - **Image Processing**: PIL/Pillow
 - **Visualization**: Matplotlib
 - **Model Serialization**: SafeTensors
 - **Progress Tracking**: tqdm
+
+## Installation
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Install package in editable mode (recommended for development)
+pip install -e .
+```
 
 ## Key Components
 
@@ -74,7 +96,7 @@ DiT-based architecture:
 
 | Class/Function | Purpose |
 |----------------|---------|
-| `Trainer` | Training loop with Adam optimizer |
+| `Trainer` | Training loop with Adam optimizer, AMP support |
 | `train()` | Main training function with checkpointing |
 | `load_checkpoint()` | Load model from safetensors file |
 
@@ -84,6 +106,13 @@ DiT-based architecture:
 |-------|---------|
 | `MazeDataset` | PyTorch Dataset with lazy batch loading |
 | `create_dataloader()` | Creates DataLoader for training |
+
+### Inference (`tacit/inference/sampling.py`)
+
+| Function | Purpose |
+|----------|---------|
+| `sample_euler_method()` | Euler sampling for diffusion inference |
+| `visualize_predictions()` | Create comparison visualizations |
 
 ## Model Architecture
 
@@ -107,6 +136,7 @@ Output (bs, 3, 64, 64)
 - Attention heads: 6
 - Patch size: 8×8
 - Learning rate: 1e-4
+- Default batch size: 256
 - Inference steps: 10 (Euler sampling)
 
 ## Development Workflow
@@ -120,19 +150,38 @@ Output (bs, 3, 64, 64)
 
 2. **Train Model**:
    ```bash
+   # Standard training (uses torch.compile and AMP by default)
    python scripts/train.py --data_dir ./data --epochs 50
+
+   # Resume from checkpoint
+   python scripts/train.py --data_dir ./data --checkpoint ./checkpoints/tacit_epoch_25.safetensors --epochs 100
+
+   # Disable optimizations if needed
+   python scripts/train.py --data_dir ./data --no_compile --no_amp
    ```
 
-3. **Sample/Evaluate**:
+3. **Sample/Visualize**:
    ```bash
    python scripts/sample.py --checkpoint ./checkpoints/tacit_epoch_50.safetensors --data_dir ./data
    ```
 
+4. **Evaluate Model**:
+   ```bash
+   # Compare multiple checkpoints
+   python scripts/evaluate.py --checkpoints ./checkpoints/tacit_epoch_10.safetensors ./checkpoints/tacit_epoch_50.safetensors
+   ```
+
+5. **Generate Paper Figures**:
+   ```bash
+   python scripts/generate_paper_figures.py --data_dir ./data --checkpoint_dir ./checkpoints
+   ```
+
 ### Directory Conventions
 
-- **Dataset**: `./data/` (local)
-- **Checkpoints**: `./checkpoints/` (local)
+- **Dataset**: `./data/` (local, gitignored)
+- **Checkpoints**: `./checkpoints/` (local, gitignored)
 - **Checkpoint format**: `tacit_epoch_N.safetensors`
+- **Paper figures**: `./paper_data/figures/`
 
 ## Code Conventions
 
@@ -153,7 +202,7 @@ Output (bs, 3, 64, 64)
 
 ### Image Format Conventions
 
-- **Resolution**: 64×64 pixels, RGB
+- **Resolution**: 64x64 pixels, RGB
 - **Storage format**: uint8 [0, 255] in .npz files
 - **Training format**: float32 [0, 1], channels-first (C, H, W)
 - **Color scheme**:
@@ -177,6 +226,13 @@ velocity = x_1 - x_0
 # Loss: MSE between predicted and target velocity
 ```
 
+### Training Optimizations
+
+The training script includes several performance optimizations:
+- **torch.compile()**: Graph optimization for fused operations (PyTorch 2.0+)
+- **Automatic Mixed Precision (AMP)**: FP16 training with gradient scaling
+- **Optimized DataLoader**: 8 workers, pinned memory, prefetching
+
 ### Memory Management
 
 - **Lazy loading**: Dataset only loads one batch at a time
@@ -187,12 +243,23 @@ velocity = x_1 - x_0
 ### Checkpoint Management
 
 ```python
-# Saving
+# Saving (handles compiled models)
 safetensors.torch.save_file(model.state_dict(), path)
 
-# Loading
-load_checkpoint(model, optimizer, checkpoint_path)
+# Loading (handles _orig_mod. prefix from compiled models)
+load_checkpoint(trainer, checkpoint_path)
 ```
+
+## Evaluation Metrics
+
+The `evaluate.py` script computes:
+
+| Metric | Description | Better |
+|--------|-------------|--------|
+| MSE | Mean Squared Error | Lower |
+| MAE | Mean Absolute Error | Lower |
+| PSNR | Peak Signal-to-Noise Ratio (dB) | Higher |
+| Path IoU | Intersection over Union for solution path | Higher |
 
 ## Common Tasks for AI Assistants
 
@@ -219,13 +286,29 @@ model = TACITModel(
 
 Via CLI:
 ```bash
-python scripts/train.py --lr 1e-4 --batch_size 64 --epochs 50
+python scripts/train.py --lr 1e-4 --batch_size 256 --epochs 50 --num_workers 8
 ```
 
 Or programmatically:
 ```python
-trainer = Trainer(model, learning_rate=1e-4)
-train(trainer, dataloader, num_epochs=50, checkpoint_every=5)
+from tacit import TACITModel, Trainer
+from tacit.data import create_dataloader
+
+model = TACITModel()
+trainer = Trainer(model, learning_rate=1e-4, use_amp=True)
+dataloader = create_dataloader('./data', batch_size=256)
+```
+
+### Using as a Package
+
+```python
+from tacit import TACITModel, Trainer, sample_euler_method
+from tacit.data import MazeDataset, create_dataloader
+
+# Create and use model
+model = TACITModel()
+dataloader = create_dataloader('./data', batch_size=64)
+trainer = Trainer(model=model, learning_rate=1e-4)
 ```
 
 ## Testing and Validation
@@ -233,6 +316,9 @@ train(trainer, dataloader, num_epochs=50, checkpoint_every=5)
 ### Quick Model Verification
 
 ```python
+import torch
+from tacit import TACITModel
+
 # Test forward pass
 model = TACITModel()
 x = torch.randn(2, 3, 64, 64)
@@ -248,6 +334,15 @@ Use `visualize_predictions()` to compare:
 - Model prediction
 - Ground truth (solved maze)
 
+### Quantitative Evaluation
+
+```bash
+python scripts/evaluate.py \
+    --checkpoints ./checkpoints/tacit_epoch_*.safetensors \
+    --num_samples 100 \
+    --output ./evaluation.png
+```
+
 ## File Size Reference
 
 | File | Approximate Size |
@@ -258,8 +353,9 @@ Use `visualize_predictions()` to compare:
 
 ## Dependencies
 
+Core dependencies (see `requirements.txt`):
 ```
-torch
+torch>=2.0
 numpy
 Pillow
 matplotlib
@@ -267,7 +363,19 @@ tqdm
 safetensors
 ```
 
-See `requirements.txt` for the complete list.
+Development dependencies:
+```
+pytest
+```
+
+## Git Conventions
+
+The `.gitignore` excludes:
+- `data/*.npz` - Large dataset files
+- `checkpoints/*.safetensors` - Model checkpoints
+- `__pycache__/`, `*.pyc` - Python cache
+- `.ipynb_checkpoints/` - Jupyter artifacts
+- IDE files (`.vscode/`, `.idea/`)
 
 ## License
 
