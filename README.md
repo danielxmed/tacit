@@ -30,7 +30,7 @@ python scripts/generate_data.py --total 1000000 --batch_size 10000 --save_dir ./
 python scripts/train.py --data_dir ./data --epochs 50
 
 # Resume from checkpoint
-python scripts/train.py --data_dir ./data --checkpoint ./checkpoints/tacit_epoch_10.safetensors --epochs 50
+python scripts/train.py --data_dir ./data --checkpoint ./checkpoints/tacit_epoch_15.safetensors --epochs 100
 ```
 
 ### 3. Sample from Model

@@ -1,4 +1,5 @@
 import torch
+from torch.amp import autocast, GradScaler
 import time
 from pathlib import Path
 from tqdm import tqdm
@@ -8,13 +9,22 @@ from tacit.models.dit import TACITModel
 
 
 class Trainer:
-    def __init__(self, model=None, optimizer=None, device=None, learning_rate=1e-4):
+    """
+    Trainer class with optimizations for high GPU utilization:
+    - Automatic Mixed Precision (AMP) for faster computation
+    - Proper gradient handling
+    - Non-blocking data transfers
+    """
+
+    def __init__(self, model=None, optimizer=None, device=None, learning_rate=1e-4,
+                 use_amp=True):
         """
         Args:
             model: TACITModel instance (creates new one if None)
-            optimizer: optimizer instance (creates Adam if None)
-            device: torch device (auto-detects if None)
-            learning_rate: learning rate for Adam optimizer
+            optimizer: Optimizer instance (creates Adam if None)
+            device: Torch device (auto-detects if None)
+            learning_rate: Learning rate for Adam optimizer
+            use_amp: Enable Automatic Mixed Precision (recommended for A100)
         """
         if device is None:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -27,6 +37,14 @@ class Trainer:
             self.model.parameters(), lr=learning_rate
         )
 
+        # Mixed precision training setup
+        self.use_amp = use_amp and device.type == 'cuda'
+        if self.use_amp:
+            self.scaler = GradScaler('cuda')
+            print("Mixed Precision (AMP) enabled for faster training")
+        else:
+            self.scaler = None
+
     def compute_loss(self, x0, x1):
         """Compute flow matching loss."""
         t = torch.rand(x0.shape[0], device=self.device)
@@ -38,13 +56,37 @@ class Trainer:
         return loss
 
     def train_step(self, x0, x1):
-        """Single training step."""
-        x0 = x0.to(self.device)
-        x1 = x1.to(self.device)
-        loss = self.compute_loss(x0, x1)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        """
+        Single training step with proper gradient handling and AMP.
+
+        The correct order is:
+        1. Zero gradients (clear old gradients FIRST)
+        2. Forward pass
+        3. Backward pass (compute new gradients)
+        4. Optimizer step (update weights)
+        """
+        # 1. Zero gradients FIRST (set_to_none=True is more efficient)
+        self.optimizer.zero_grad(set_to_none=True)
+
+        # Transfer to GPU with non_blocking for async copy
+        x0 = x0.to(self.device, non_blocking=True)
+        x1 = x1.to(self.device, non_blocking=True)
+
+        if self.use_amp:
+            # Mixed precision forward pass
+            with autocast('cuda'):
+                loss = self.compute_loss(x0, x1)
+
+            # Scaled backward pass (prevents gradient underflow in FP16)
+            self.scaler.scale(loss).backward()
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+        else:
+            # Standard precision training
+            loss = self.compute_loss(x0, x1)
+            loss.backward()
+            self.optimizer.step()
+
         return loss.item()
 
 
@@ -63,13 +105,13 @@ def train(trainer, dataloader, num_epochs, checkpoint_dir='./checkpoints',
     Args:
         trainer: Trainer instance
         dataloader: DataLoader with maze pairs
-        num_epochs: number of epochs to train
-        checkpoint_dir: directory to save checkpoints
-        log_every: log average loss every N batches
-        checkpoint_every: save checkpoint every N epochs
+        num_epochs: Number of epochs to train
+        checkpoint_dir: Directory to save checkpoints
+        log_every: Log average loss every N batches
+        checkpoint_every: Save checkpoint every N epochs
 
     Returns:
-        all_losses: list of all batch losses
+        all_losses: List of all batch losses
     """
     checkpoint_dir = Path(checkpoint_dir)
     checkpoint_dir.mkdir(exist_ok=True)
@@ -86,17 +128,20 @@ def train(trainer, dataloader, num_epochs, checkpoint_dir='./checkpoints',
             loss = trainer.train_step(x0, x1)
             epoch_losses.append(loss)
 
-            progress_bar.set_postfix({'loss': f'{loss:.4f}'})
+            progress_bar.set_postfix({'loss': f'{loss:.6f}'})
 
             if idx_batch % log_every == 0 and idx_batch > 0:
                 avg_recent = sum(epoch_losses[-log_every:]) / log_every
-                print(f'\n  Batch {idx_batch}: avg loss = {avg_recent:.4f}')
+                print(f'\n  Batch {idx_batch}: avg loss = {avg_recent:.6e}')
 
         epoch_time = time.time() - epoch_start
         epoch_avg_loss = sum(epoch_losses) / len(epoch_losses)
         all_losses.extend(epoch_losses)
 
-        print(f'\nEpoch {epoch+1} complete: avg loss = {epoch_avg_loss:.4f}, time = {epoch_time:.1f}s')
+        # Calculate throughput
+        samples_per_sec = len(dataloader) * dataloader.batch_size / epoch_time
+        print(f'\nEpoch {epoch+1} complete: avg loss = {epoch_avg_loss:.6e}, '
+              f'time = {epoch_time:.1f}s, throughput = {samples_per_sec:.0f} samples/s')
 
         if (epoch + 1) % checkpoint_every == 0:
             checkpoint_path = checkpoint_dir / f'tacit_epoch_{epoch+1}.safetensors'

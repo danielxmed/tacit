@@ -1,0 +1,26 @@
+# Large data files
+data/*.npz
+checkpoints/*.safetensors
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Generated images (root level)
+predictions.png
+predictions_epoch*.png
+evaluation_comparison.png
+
+# OS files
+.DS_Store
+Thumbs.db

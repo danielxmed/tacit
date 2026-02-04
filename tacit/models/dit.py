@@ -80,6 +80,14 @@ def get_2d_sincos_pos_embed(embed_dim, grid_size):
 
 
 class DiTBlock(nn.Module):
+    """
+    Diffusion Transformer block with adaptive LayerNorm and optimized attention.
+
+    Uses PyTorch's scaled_dot_product_attention which automatically selects
+    the most efficient implementation (Flash Attention, Memory-Efficient Attention,
+    or standard attention) based on hardware and input characteristics.
+    """
+
     def __init__(self, hidden_size, num_heads):
         super().__init__()
         self.hidden_size = hidden_size
@@ -118,10 +126,9 @@ class DiTBlock(nn.Module):
         K = K.reshape(batch_size, seq_length, self.num_heads, -1).transpose(1, 2)
         V = V.reshape(batch_size, seq_length, self.num_heads, -1).transpose(1, 2)
 
-        dim_per_head = self.hidden_size / self.num_heads
-        attention_scores_matrix = (Q @ K.transpose(2, 3)) / math.sqrt(dim_per_head)  # (bs, heads, seq, seq)
-        attention_scores_matrix = F.softmax(attention_scores_matrix, dim=-1)
-        attention_output = attention_scores_matrix @ V  # (seq, seq) @ (seq, dim_per_head)-> (seq, dim_per_head)
+        # Use optimized attention (Flash Attention when available)
+        # This is 2-3x faster and more memory efficient than manual implementation
+        attention_output = F.scaled_dot_product_attention(Q, K, V)
 
         attention_output = attention_output.transpose(1, 2).reshape(batch_size, seq_length, -1)
         proj_attention_output = self.W_out_proj(attention_output) + x
