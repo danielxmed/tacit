@@ -1,0 +1,16 @@
+{
+  "config": {
+    "num_samples": 20,
+    "num_steps": 50,
+    "segment_fractions": [
+      0.33,
+      0.34,
+      0.33
+    ],
+    "seed": 42
+  },
+  "pattern_counts": {
+    "simultaneous": 20
+  },
+  "dominant_pattern": "simultaneous"
+}

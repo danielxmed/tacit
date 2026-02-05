@@ -1,0 +1,156 @@
+{
+  "config": {
+    "num_mazes": 20,
+    "sizes": [
+      11,
+      15,
+      21,
+      25,
+      31
+    ],
+    "seed": 42,
+    "output_size": 64
+  },
+  "mazes": [
+    {
+      "id": 0,
+      "size": 11,
+      "path_length": 33,
+      "actual_maze_size": 11,
+      "output_size": 64
+    },
+    {
+      "id": 1,
+      "size": 15,
+      "path_length": 41,
+      "actual_maze_size": 15,
+      "output_size": 64
+    },
+    {
+      "id": 2,
+      "size": 21,
+      "path_length": 65,
+      "actual_maze_size": 21,
+      "output_size": 64
+    },
+    {
+      "id": 3,
+      "size": 25,
+      "path_length": 109,
+      "actual_maze_size": 25,
+      "output_size": 64
+    },
+    {
+      "id": 4,
+      "size": 31,
+      "path_length": 237,
+      "actual_maze_size": 31,
+      "output_size": 64
+    },
+    {
+      "id": 5,
+      "size": 11,
+      "path_length": 21,
+      "actual_maze_size": 11,
+      "output_size": 64
+    },
+    {
+      "id": 6,
+      "size": 15,
+      "path_length": 33,
+      "actual_maze_size": 15,
+      "output_size": 64
+    },
+    {
+      "id": 7,
+      "size": 21,
+      "path_length": 97,
+      "actual_maze_size": 21,
+      "output_size": 64
+    },
+    {
+      "id": 8,
+      "size": 25,
+      "path_length": 169,
+      "actual_maze_size": 25,
+      "output_size": 64
+    },
+    {
+      "id": 9,
+      "size": 31,
+      "path_length": 237,
+      "actual_maze_size": 31,
+      "output_size": 64
+    },
+    {
+      "id": 10,
+      "size": 11,
+      "path_length": 21,
+      "actual_maze_size": 11,
+      "output_size": 64
+    },
+    {
+      "id": 11,
+      "size": 15,
+      "path_length": 61,
+      "actual_maze_size": 15,
+      "output_size": 64
+    },
+    {
+      "id": 12,
+      "size": 21,
+      "path_length": 65,
+      "actual_maze_size": 21,
+      "output_size": 64
+    },
+    {
+      "id": 13,
+      "size": 25,
+      "path_length": 125,
+      "actual_maze_size": 25,
+      "output_size": 64
+    },
+    {
+      "id": 14,
+      "size": 31,
+      "path_length": 113,
+      "actual_maze_size": 31,
+      "output_size": 64
+    },
+    {
+      "id": 15,
+      "size": 11,
+      "path_length": 37,
+      "actual_maze_size": 11,
+      "output_size": 64
+    },
+    {
+      "id": 16,
+      "size": 15,
+      "path_length": 37,
+      "actual_maze_size": 15,
+      "output_size": 64
+    },
+    {
+      "id": 17,
+      "size": 21,
+      "path_length": 61,
+      "actual_maze_size": 21,
+      "output_size": 64
+    },
+    {
+      "id": 18,
+      "size": 25,
+      "path_length": 165,
+      "actual_maze_size": 25,
+      "output_size": 64
+    },
+    {
+      "id": 19,
+      "size": 31,
+      "path_length": 233,
+      "actual_maze_size": 31,
+      "output_size": 64
+    }
+  ]
+}

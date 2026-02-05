@@ -16,7 +16,7 @@ This document summarizes the training of the TACIT (Transformation-Aware Capturi
 | Attention Heads | 6 |
 | Patch Size | 8x8 |
 | Input Resolution | 64x64 RGB |
-| Total Parameters | ~50M |
+| Total Parameters | ~20M |
 
 ### Architecture Details
 
