@@ -17,20 +17,41 @@ tacit/
 │   │   └── dataset.py            # MazeDataset, create_dataloader
 │   ├── training/
 │   │   └── trainer.py            # Trainer class, training loop
-│   └── inference/
-│       └── sampling.py           # Euler sampling, visualization
+│   ├── inference/
+│   │   └── sampling.py           # Euler sampling, visualization
+│   └── interpretability/         # Interpretability analysis utilities
+│       └── utils.py              # Shared functions for analysis scripts
 ├── scripts/                      # Entry point scripts
 │   ├── generate_data.py          # Dataset generation
 │   ├── train.py                  # Model training (with torch.compile, AMP)
 │   ├── sample.py                 # Inference/sampling
 │   ├── evaluate.py               # Evaluation with PSNR, Path IoU metrics
-│   └── generate_paper_figures.py # Paper figure generation
+│   ├── generate_paper_figures.py # Paper figure generation
+│   ├── generate_test_mazes.py    # Generate deterministic test maze set
+│   ├── generate_step_by_step.py  # Step-by-step transformation visualization
+│   ├── analyze_emergence.py      # Phase transition and emergence analysis
+│   ├── analyze_spatial.py        # Spatial pattern emergence analysis
+│   └── compare_step_counts.py    # Step count convergence analysis
 ├── paper_data/                   # Paper figures and metrics
 │   ├── figures/
 │   │   ├── training_curves/      # Loss curves, quality metrics
 │   │   ├── epoch_comparison/     # Evolution grids
 │   │   └── maze_samples/         # Per-epoch sample visualizations
-│   ├── reports/                  # Training summaries
+│   ├── interpretability/         # Interpretability analysis outputs
+│   │   ├── emergence/            # Phase transition analysis
+│   │   ├── spatial/              # Spatial pattern analysis
+│   │   ├── step_by_step/         # Step-by-step visualizations and GIFs
+│   │   └── step_comparison/      # Different step count comparisons
+│   ├── reports/                  # Research analysis reports
+│   │   ├── training_summary.md
+│   │   ├── phase_transition_analysis.md
+│   │   ├── spatial_emergence_analysis.md
+│   │   └── philosophical_synthesis.md
+│   ├── test_mazes/               # Deterministic test maze set
+│   └── README.md
+├── paper_draft/                  # LaTeX paper source
+│   ├── main.tex                  # Paper source file
+│   ├── Makefile                  # Build automation
 │   └── README.md
 ├── data/                         # Dataset directory (local, gitignored)
 ├── checkpoints/                  # Model checkpoints (local, gitignored)
@@ -114,6 +135,21 @@ DiT-based architecture:
 | `sample_euler_method()` | Euler sampling for diffusion inference |
 | `visualize_predictions()` | Create comparison visualizations |
 
+### Interpretability (`tacit/interpretability/utils.py`)
+
+Shared utilities for interpretability analysis:
+
+| Function | Purpose |
+|----------|---------|
+| `load_checkpoint_flexible()` | Load checkpoints handling compiled model formats |
+| `sample_euler_with_trajectory()` | Euler sampling capturing intermediate states |
+| `extract_red_path_mask()` | Extract binary mask of solution path (red pixels) |
+| `detect_red_pixels()` | Detect red pixels and compute redness intensity |
+| `compute_red_channel_metrics()` | Compute IoU, recall, precision for solution path |
+| `tensor_to_image()` / `image_to_tensor()` | Format conversions |
+| `load_samples_from_data_dir()` | Load samples with deterministic selection |
+| `compute_mse()` / `compute_psnr()` | Quality metrics |
+
 ## Model Architecture
 
 ```
@@ -174,6 +210,24 @@ Output (bs, 3, 64, 64)
 5. **Generate Paper Figures**:
    ```bash
    python scripts/generate_paper_figures.py --data_dir ./data --checkpoint_dir ./checkpoints
+   ```
+
+6. **Interpretability Analysis**:
+   ```bash
+   # Generate deterministic test mazes
+   python scripts/generate_test_mazes.py --output_dir ./paper_data/test_mazes --num_mazes 100
+
+   # Step-by-step transformation visualization (with GIFs)
+   python scripts/generate_step_by_step.py --checkpoint ./checkpoints/tacit_epoch_100.safetensors
+
+   # Phase transition and emergence analysis
+   python scripts/analyze_emergence.py --checkpoint ./checkpoints/tacit_epoch_100.safetensors --num_samples 20
+
+   # Spatial pattern emergence analysis
+   python scripts/analyze_spatial.py --checkpoint ./checkpoints/tacit_epoch_100.safetensors --num_samples 20
+
+   # Step count convergence analysis
+   python scripts/compare_step_counts.py --checkpoint ./checkpoints/tacit_epoch_100.safetensors
    ```
 
 ### Directory Conventions
@@ -260,6 +314,29 @@ The `evaluate.py` script computes:
 | MAE | Mean Absolute Error | Lower |
 | PSNR | Peak Signal-to-Noise Ratio (dB) | Higher |
 | Path IoU | Intersection over Union for solution path | Higher |
+
+## Key Research Findings
+
+### Simultaneous Emergence Phenomenon
+
+The interpretability analysis revealed a surprising finding about how the model solves mazes:
+
+**Phase Transition**: The solution path emerges through a sharp phase transition, not gradually:
+- **Critical time**: t* ≈ 0.70 (consistent across all samples)
+- **Transition width**: Δt ≈ 0.02 (only 2% of the total process)
+- **Final IoU**: 0.9706 ± 0.071
+
+**Simultaneous Appearance**: All parts of the solution path (start, middle, end) emerge at the same timestep:
+- Unlike traditional algorithms (BFS, DFS, A*) that explore sequentially
+- The model appears to "compute" the entire solution internally before revealing it
+- Analogous to the human "eureka moment" or insight phenomenon
+
+This suggests the diffusion process involves:
+1. **Incubation phase** (t=0.0 to t≈0.68): Internal representation transforms with no visible progress
+2. **Phase transition** (t≈0.70): Solution crystallizes and becomes visible
+3. **Refinement** (t>0.72): Fine-tuning of the emerged solution
+
+For detailed analysis, see `paper_data/reports/phase_transition_analysis.md` and `paper_data/reports/spatial_emergence_analysis.md`.
 
 ## Common Tasks for AI Assistants
 
@@ -361,6 +438,13 @@ Pillow
 matplotlib
 tqdm
 safetensors
+```
+
+Interpretability analysis dependencies:
+```
+pandas
+scipy
+imageio      # For GIF generation
 ```
 
 Development dependencies:
