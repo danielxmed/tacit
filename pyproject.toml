@@ -20,6 +20,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+analysis = ["scipy", "pandas", "imageio"]
+all = ["pytest", "scipy", "pandas", "imageio"]
 
 [tool.setuptools.packages.find]
 where = ["."]
